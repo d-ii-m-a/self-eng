@@ -20,8 +20,12 @@ function timingSafeEqual(a: string, b: string): boolean {
 export function bearerAuth(): MiddlewareHandler<{ Bindings: Env }> {
 	return async (c, next) => {
 		const header = c.req.header("Authorization") ?? "";
+		const tokenParam = c.req.query("token");
 		const expected = `Bearer ${c.env.MCP_TOKEN}`;
-		const authorized = c.env.MCP_TOKEN !== undefined && c.env.MCP_TOKEN.length > 0 && timingSafeEqual(header, expected);
+		const hasToken = c.env.MCP_TOKEN !== undefined && c.env.MCP_TOKEN.length > 0;
+
+		const authorized =
+			hasToken && (timingSafeEqual(header, expected) || (tokenParam !== undefined && timingSafeEqual(tokenParam, c.env.MCP_TOKEN)));
 
 		if (!authorized) {
 			return c.json({ success: false, errors: [{ code: 401, message: "Unauthorized" }] }, 401);
