@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { AppContext } from "../../types";
 import { z } from "zod";
+import { getMistakeStats } from "./stats";
 
 const patternStats = z.object({
 	pattern: z.string(),
@@ -34,38 +35,11 @@ export class MistakeStats extends OpenAPIRoute {
 	};
 
 	public async handle(c: AppContext) {
-		const db = c.env.DB;
-
-		const totalRow = await db
-			.prepare("SELECT COUNT(*) as count FROM english_mistakes")
-			.first<{ count: number }>();
-
-		const byPattern = await db
-			.prepare(
-				`SELECT pattern, COUNT(*) as count, MAX(created_at) as last_seen
-				 FROM english_mistakes
-				 GROUP BY pattern
-				 ORDER BY count DESC`,
-			)
-			.all<{ pattern: string; count: number; last_seen: string }>();
-
-		const weekly = await db
-			.prepare(
-				`SELECT strftime('%Y-W%W', created_at) as week, pattern, COUNT(*) as count
-				 FROM english_mistakes
-				 WHERE created_at >= datetime('now', '-84 days')
-				 GROUP BY week, pattern
-				 ORDER BY week DESC, count DESC`,
-			)
-			.all<{ week: string; pattern: string; count: number }>();
+		const result = await getMistakeStats(c.env.DB);
 
 		return {
 			success: true,
-			result: {
-				total: totalRow?.count ?? 0,
-				by_pattern: byPattern.results,
-				weekly: weekly.results,
-			},
+			result,
 		};
 	}
 }

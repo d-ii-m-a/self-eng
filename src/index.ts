@@ -4,6 +4,9 @@ import { tasksRouter } from "./endpoints/tasks/router";
 import { mistakesRouter } from "./endpoints/mistakes/router";
 import { ContentfulStatusCode } from "hono/utils/http-status";
 import { DummyEndpoint } from "./endpoints/dummyEndpoint";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { createMistakesServer } from "./mcp/mistakesServer";
+import { bearerAuth } from "./auth";
 
 // Start a Hono app
 const app = new Hono<{ Bindings: Env }>();
@@ -49,6 +52,16 @@ openapi.route("/mistakes", mistakesRouter);
 
 // Register other endpoints
 openapi.post("/dummy/:slug", DummyEndpoint);
+
+// Register the mistakes MCP server (stateless: fresh transport/server per request)
+app.use("/mcp", bearerAuth());
+app.all("/mcp", async (c) => {
+	const transport = new WebStandardStreamableHTTPServerTransport();
+	const server = createMistakesServer(c.env);
+	await server.connect(transport);
+
+	return transport.handleRequest(c.req.raw);
+});
 
 // Export the Hono app
 export default app;
